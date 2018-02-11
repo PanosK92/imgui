@@ -1,12 +1,14 @@
 // ImGui Win32 + DirectX9 binding
-// In this binding, ImTextureID is used to store a 'LPDIRECT3DTEXTURE9' texture identifier. Read the FAQ about ImTextureID in imgui.cpp.
+
+// Implemented features:
+//  [X] User texture binding. Use 'LPDIRECT3DTEXTURE9' as ImTextureID. Read the FAQ about ImTextureID in imgui.cpp.
 
 // You can copy and use unmodified imgui_impl_* files in your project. See main.cpp for an example of using this.
 // If you use this binding you'll need to call 4 functions: ImGui_ImplXXXX_Init(), ImGui_ImplXXXX_NewFrame(), ImGui::Render() and ImGui_ImplXXXX_Shutdown().
 // If you are new to ImGui, see examples/README.txt and documentation at the top of imgui.cpp.
 // https://github.com/ocornut/imgui
 
-#include <imgui.h>
+#include "imgui.h"
 #include "imgui_impl_dx9.h"
 
 // DirectX
@@ -171,15 +173,6 @@ void ImGui_ImplDX9_RenderDrawLists(ImDrawData* draw_data)
     d3d9_state_block->Release();
 }
 
-static bool IsAnyMouseButtonDown()
-{
-    ImGuiIO& io = ImGui::GetIO();
-    for (int n = 0; n < IM_ARRAYSIZE(io.MouseDown); n++)
-        if (io.MouseDown[n])
-            return true;
-    return false;
-}
-
 // Process Win32 mouse/keyboard inputs. 
 // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use your inputs.
 // - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main application.
@@ -189,6 +182,9 @@ static bool IsAnyMouseButtonDown()
 // PS: We treat DBLCLK messages as regular mouse down messages, so this code will work on windows classes that have the CS_DBLCLKS flag set. Our own example app code doesn't set this flag.
 IMGUI_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
+    if (ImGui::GetCurrentContext() == NULL)
+        return 0;
+
     ImGuiIO& io = ImGui::GetIO();
     switch (msg)
     {
@@ -200,8 +196,8 @@ IMGUI_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg, WPARAM wPa
         if (msg == WM_LBUTTONDOWN || msg == WM_LBUTTONDBLCLK) button = 0;
         if (msg == WM_RBUTTONDOWN || msg == WM_RBUTTONDBLCLK) button = 1;
         if (msg == WM_MBUTTONDOWN || msg == WM_MBUTTONDBLCLK) button = 2;
-        if (!IsAnyMouseButtonDown() && GetCapture() == NULL)
-            SetCapture(hwnd);
+        if (!ImGui::IsAnyMouseDown() && ::GetCapture() == NULL)
+            ::SetCapture(hwnd);
         io.MouseDown[button] = true;
         return 0;
     }
@@ -214,8 +210,8 @@ IMGUI_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg, WPARAM wPa
         if (msg == WM_RBUTTONUP) button = 1;
         if (msg == WM_MBUTTONUP) button = 2;
         io.MouseDown[button] = false;
-        if (!IsAnyMouseButtonDown() && GetCapture() == hwnd)
-            ReleaseCapture();
+        if (!ImGui::IsAnyMouseDown() && ::GetCapture() == hwnd)
+            ::ReleaseCapture();
         return 0;
     }
     case WM_MOUSEWHEEL:
@@ -270,6 +266,7 @@ bool    ImGui_ImplDX9_Init(void* hwnd, IDirect3DDevice9* device)
     io.KeyMap[ImGuiKey_Insert] = VK_INSERT;
     io.KeyMap[ImGuiKey_Delete] = VK_DELETE;
     io.KeyMap[ImGuiKey_Backspace] = VK_BACK;
+    io.KeyMap[ImGuiKey_Space] = VK_SPACE;
     io.KeyMap[ImGuiKey_Enter] = VK_RETURN;
     io.KeyMap[ImGuiKey_Escape] = VK_ESCAPE;
     io.KeyMap[ImGuiKey_A] = 'A';
@@ -288,7 +285,6 @@ bool    ImGui_ImplDX9_Init(void* hwnd, IDirect3DDevice9* device)
 void ImGui_ImplDX9_Shutdown()
 {
     ImGui_ImplDX9_InvalidateDeviceObjects();
-    ImGui::Shutdown();
     g_pd3dDevice = NULL;
     g_hWnd = 0;
 }
